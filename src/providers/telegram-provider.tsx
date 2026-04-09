@@ -140,11 +140,25 @@ export function TelegramProvider({ children }: TelegramProviderProps) {
     initTelegram();
   }, []);
 
+  // URL query dagi sessiya tokenni saqlash (Telegramdan kelgan deep-link)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const tokenFromQuery = url.searchParams.get("token");
+    if (!tokenFromQuery) return;
+    setTelegramSessionToken(tokenFromQuery);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+  }, []);
+
   // 1) Telegram login: initData → POST /api/auth/telegram (sessiya tokeni)
   // 2) Profil va garderobni backend dan yuklash
   useEffect(() => {
     const apiBase = process.env.NEXT_PUBLIC_API_URL || "";
-    if (!apiBase || !initData || syncedRef.current) return;
+    if (!apiBase || syncedRef.current) return;
+    if (!initData && typeof window !== "undefined" && !sessionStorage.getItem("stylist_tg_session")) {
+      return;
+    }
     syncedRef.current = true;
 
     const setProfile = useAppStore.getState().setProfile;
@@ -152,11 +166,14 @@ export function TelegramProvider({ children }: TelegramProviderProps) {
     const setOnboardingComplete = useAppStore.getState().setOnboardingComplete;
     const setFavorites = useAppStore.getState().setFavorites;
 
-    authTelegram(initData)
-      .then((data) => {
-        if (data.token) setTelegramSessionToken(data.token);
-        return Promise.all([getUserProfile(initData), getWardrobe(initData)]);
-      })
+    const loginStep = initData
+      ? authTelegram(initData).then((data) => {
+          if (data.token) setTelegramSessionToken(data.token);
+        })
+      : Promise.resolve();
+
+    loginStep
+      .then(() => Promise.all([getUserProfile(initData), getWardrobe(initData)]))
       .then(([profileRes, wardrobeRes]) => {
         if (!loginHapticRef.current) {
           loginHapticRef.current = true;
