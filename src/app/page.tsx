@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/use-app-store";
 import { HomePage } from "@/components/home/home-page";
 
@@ -11,15 +11,21 @@ import { HomePage } from "@/components/home/home-page";
  */
 export default function Page() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const hasCompletedOnboarding = useAppStore(
     (state) => state.hasCompletedOnboarding
   );
 
   useEffect(() => {
+    const token = searchParams.get("token");
+    if (token) {
+      router.replace(`/welcome?token=${encodeURIComponent(token)}`);
+      return;
+    }
     if (!hasCompletedOnboarding) {
       router.replace("/welcome");
     }
-  }, [hasCompletedOnboarding, router]);
+  }, [hasCompletedOnboarding, router, searchParams]);
 
   // Show nothing while redirecting (avoids flash)
   if (!hasCompletedOnboarding) {

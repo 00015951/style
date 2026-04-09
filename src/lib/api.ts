@@ -245,6 +245,12 @@ export async function aiChat(body: {
     headers: getHeaders(null),
     body: JSON.stringify(body),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const e = new Error(err.error || err.message || "AI chat failed") as Error & { code?: string };
+    if (res.status === 402 && err.error === "UPGRADE_TO_PRO") e.code = "UPGRADE_TO_PRO";
+    if (res.status === 401) e.code = "UNAUTHORIZED";
+    throw e;
+  }
   return res.json() as Promise<{ reply: string; result?: unknown }>;
 }

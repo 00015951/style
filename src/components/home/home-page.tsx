@@ -68,6 +68,7 @@ export function HomePage() {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [subscription, setSubscription] = useState<{ plan: string; freeUsesLeft: number; isPro: boolean } | null>(null);
+  const [errorText, setErrorText] = useState("");
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -94,11 +95,11 @@ export function HomePage() {
 
   // Load subscription
   useEffect(() => {
-    if (initData) {
-      getSubscription(initData).then((s) => {
+    getSubscription(initData)
+      .then((s) => {
         if (s) setSubscription({ plan: s.plan, freeUsesLeft: s.freeUsesLeft, isPro: s.isPro });
-      }).catch(() => {});
-    }
+      })
+      .catch(() => {});
   }, [initData]);
 
   // Restore edit state
@@ -111,6 +112,7 @@ export function HomePage() {
     const occasion = (text ?? inputValue).trim();
     if (!occasion) return;
     if (!canGenerate()) { setShowProModal(true); return; }
+    setErrorText("");
 
     haptic.impact("medium");
     if (!text) setInputValue("");
@@ -142,9 +144,23 @@ export function HomePage() {
       } else {
         haptic.notification("warning");
       }
-    } catch {
+    } catch (err) {
       setShowGenerating(false);
       setIsLoading(false);
+      const code = (err as { code?: string })?.code;
+      if (code === "UPGRADE_TO_PRO") {
+        setShowProModal(true);
+      } else if (code === "UNAUTHORIZED") {
+        router.replace("/welcome");
+      } else {
+        setErrorText(
+          language === "uz"
+            ? "Generate qilishda xatolik bo'ldi. Qayta urinib ko'ring."
+            : language === "ru"
+              ? "Ошибка генерации. Попробуйте еще раз."
+              : "Failed to generate look. Please try again."
+        );
+      }
       haptic.notification("error");
     }
   };
@@ -158,6 +174,8 @@ export function HomePage() {
 
   /* ── Occasion flow generate ── */
   const handleFlowGenerate = async (data: FlowData) => {
+    setErrorText("");
+    setIsLoading(true);
     setShowGenerating(true);
     setSelectedMood(null);
     haptic.impact("medium");
@@ -186,6 +204,7 @@ export function HomePage() {
       });
 
       setShowGenerating(false);
+      setIsLoading(false);
 
       if (r?.result) {
         setLastGeneratedResult(r.result as GeneratedStyleResult);
@@ -195,8 +214,23 @@ export function HomePage() {
       } else {
         haptic.notification("warning");
       }
-    } catch {
+    } catch (err) {
       setShowGenerating(false);
+      setIsLoading(false);
+      const code = (err as { code?: string })?.code;
+      if (code === "UPGRADE_TO_PRO") {
+        setShowProModal(true);
+      } else if (code === "UNAUTHORIZED") {
+        router.replace("/welcome");
+      } else {
+        setErrorText(
+          language === "uz"
+            ? "Generate qilishda xatolik bo'ldi. Qayta urinib ko'ring."
+            : language === "ru"
+              ? "Ошибка генерации. Попробуйте еще раз."
+              : "Failed to generate look. Please try again."
+        );
+      }
       haptic.notification("error");
     }
   };
@@ -251,6 +285,12 @@ export function HomePage() {
               </button>
             )}
           </motion.div>
+        )}
+
+        {errorText && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+            {errorText}
+          </div>
         )}
 
         {/* ─── Main Chat Input Card ─── */}
